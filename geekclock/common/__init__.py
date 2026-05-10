@@ -1,0 +1,1 @@
+from geekclock.common.opacity_slider import OpacitySliderWidget as OpacitySliderWidget

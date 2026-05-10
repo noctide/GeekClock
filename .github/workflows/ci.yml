@@ -1,0 +1,23 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+      - name: Sync env
+        run: uv sync
+      - name: Lint
+        run: uv run ruff check .
+      - name: Test
+        run: uv run pytest -v
+      - name: Build exe
+        run: uv run python build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GeekClock-${{ github.sha }}
+          path: dist/GeekClock.exe

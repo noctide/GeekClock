@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.spec
+
+# Virtual env
+.venv/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Test
+.pytest_cache/
+
+# Logs
+logs/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+alarms.json
+*.bak

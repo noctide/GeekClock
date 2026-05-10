@@ -1,0 +1,32 @@
+[project]
+name = "geekclock"
+version = "1.0.0"
+description = "GeekClock desktop alarm clock and productivity tool"
+requires-python = "==3.12.*"
+dependencies = [
+    "APScheduler>=3.10,<4",
+    "PySide6>=6.8,<6.12",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.0",
+    "pytest>=8.0",
+    "pytest-qt>=4.4",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+include = ["geekclock*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
