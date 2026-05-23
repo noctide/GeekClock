@@ -37,7 +37,7 @@ class CollapsibleGroupWidget(QFrame):
     toggle_group_requested = Signal(str)
     expanded_changed = Signal(str, bool)
 
-    def __init__(self, group_name: str, color: str, expanded: bool = True, parent=None):
+    def __init__(self, group_name: str, color: str, expanded: bool = False, parent=None):
         super().__init__(parent)
         self._group_name = group_name
         self._expanded = expanded
@@ -69,6 +69,10 @@ class CollapsibleGroupWidget(QFrame):
         title_lbl = QLabel(group_name)
         title_lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #333;")
         header_layout.addWidget(title_lbl)
+
+        self._count_label = QLabel("")
+        self._count_label.setStyleSheet("font-size: 11px; color: #999;")
+        header_layout.addWidget(self._count_label)
 
         header_layout.addStretch()
 
@@ -116,6 +120,9 @@ class CollapsibleGroupWidget(QFrame):
 
     def add_alarm_card(self, card: AlarmCard) -> None:
         self._content_layout.addWidget(card)
+
+    def set_alarm_count(self, count: int) -> None:
+        self._count_label.setText(f"{count} 个闹钟")
 
     def update_batch_button(self, all_enabled: bool) -> None:
         self._batch_btn.setText("全部暂停" if all_enabled else "全部启用")

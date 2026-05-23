@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self._audio_player = audio_player
         self._scheduler = scheduler
-        self._collapsed_groups: set[str] = set()
+        self._expanded_groups: set[str] = set()
 
         self.setWindowTitle("GeekClock")
         self.setMinimumWidth(120)
@@ -241,19 +241,20 @@ class MainWindow(QMainWindow):
             group_alarms = grouped[group_name]
             color = _get_group_color(group_name)
             all_enabled = all(a.get("enabled") for a in group_alarms)
-            expanded = group_name not in self._collapsed_groups
+            expanded = group_name in self._expanded_groups
 
             group_widget = CollapsibleGroupWidget(
                 group_name, color, expanded=expanded
             )
+            group_widget.set_alarm_count(len(group_alarms))
             group_widget.update_batch_button(all_enabled)
             group_widget.toggle_group_requested.connect(self._on_toggle_group)
 
-            # 记录折叠状态
+            # 记录展开状态
             def _make_collapse_handler(gn):
                 return lambda exp: (
-                    self._collapsed_groups.discard(gn) if exp
-                    else self._collapsed_groups.add(gn)
+                    self._expanded_groups.add(gn) if exp
+                    else self._expanded_groups.discard(gn)
                 )
             group_widget.expanded_changed.connect(
                 _make_collapse_handler(group_name)
@@ -391,14 +392,12 @@ class MainWindow(QMainWindow):
                     自动识别其中的 URL 部分作为链接
         """
         nickname = config.get_user_nickname()
-        # 默认参数昵称签名修改
         if not nickname:
-            self._nickname_label.setText(f"{self._NICKNAME_PREFIX}慕言涤尘")
-            self._nickname_label.setToolTip("")
-            return
+            content = "可以下载 https://github.com/srwi/EverythingToolbar 辅助使用"
+        else:
+            content = nickname
 
-        # 处理混合内容：把 URL 部分包装成 <a> 标签
-        html, full_urls = self._render_nickname_html(nickname)
+        html, full_urls = self._render_nickname_html(content)
         self._nickname_label.setText(f"{self._NICKNAME_PREFIX}{html}")
 
         # tooltip 显示完整 URL（如果有）

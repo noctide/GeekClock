@@ -46,7 +46,7 @@
 ## 2. 文件地图
 
 ```
-GeekClock_v1/
+GeekClock_v3/
 ├── main.py                          # 程序启动入口（最外层）
 ├── build.py                         # 打包脚本
 ├── build.bat                        # Windows 打包批处理
@@ -211,8 +211,15 @@ main()
 | `get_user_nickname()` | **获取用户自定义参数（右下角显示的签名）** | 无 | 字符串 |
 | `set_user_nickname(nickname)` | **设置用户自定义参数** | 字符串 | 是否成功 |
 | `update_global_settings(updates)` | **更新全局设置**。支持嵌套字段合并 | 设置片段字典 | 是否成功 |
+| `get_floating_clock_settings()` | **获取悬浮时钟设置** | 无 | 设置字典 |
+| `update_floating_clock_settings(updates)` | **更新悬浮时钟设置** | 设置片段 | 是否成功 |
+| `get_timer_settings()` | **获取计时器设置** | 无 | 设置字典 |
+| `update_timer_settings(updates)` | **更新计时器设置** | 设置片段 | 是否成功 |
+| `get_groups()` | **获取所有分组名称**。"默认"始终排第一 | 无 | 分组列表 |
 
----
+#### 配置迁移机制
+
+配置文件包含 `schema_version` 字段用于版本管理。当旧版配置被加载时，`load_config()` 会自动按版本号逐个调用 `MIGRATORS` 字典中注册的迁移函数，升级前自动备份原文件（`.bak` 后缀）。
 
 ### 3.4 调度引擎 `core/scheduler.py`
 

@@ -196,13 +196,17 @@ class AlarmCard(QFrame):
         title_row.addStretch()
         center.addLayout(title_row)
 
-        # 详情行：音频名 · 下次 xx
+        # 详情行：动作描述 · 下次 xx
         next_text = format_next_run(next_run) if self._alarm.get("enabled") else "已禁用"
-        audio_path = self._alarm.get("audio", "") or ""
-        # 只显示文件名，不显示完整路径，避免太长
-        audio_name = audio_path.replace("\\", "/").split("/")[-1] or "无音频"
-        # 限制总长度
-        detail_text = f"{audio_name} · 下次 {next_text}"
+        action_type = self._alarm.get("action_type", "audio")
+        if action_type == "open_file":
+            file_path = self._alarm.get("file_path", "")
+            file_name = file_path.replace("\\", "/").split("/")[-1] or "无文件"
+            detail_text = f"打开 {file_name} · 下次 {next_text}"
+        else:
+            audio_path = self._alarm.get("audio", "") or ""
+            audio_name = audio_path.replace("\\", "/").split("/")[-1] or "无音频"
+            detail_text = f"{audio_name} · 下次 {next_text}"
         if len(detail_text) > 40:
             detail_text = detail_text[:38] + "…"
         detail = QLabel(detail_text)

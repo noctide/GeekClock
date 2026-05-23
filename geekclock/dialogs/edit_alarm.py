@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QDateTime, Qt
+from PySide6.QtCore import QDateTime, QEvent, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -78,6 +78,10 @@ class EditAlarmDialog(QDialog):
         self._group_combo = QComboBox()
         self._group_combo.setEditable(True)
         self._refresh_group_combo()
+        # 点击输入框区域也能弹出下拉列表
+        line_edit = self._group_combo.lineEdit()
+        if line_edit:
+            line_edit.installEventFilter(self)
         group_row.addWidget(self._group_combo, 1)
         layout.addLayout(group_row)
 
@@ -115,8 +119,29 @@ class EditAlarmDialog(QDialog):
         self._message_input.setPlaceholderText("例如：该喝水啦，起来活动一下")
         layout.addWidget(self._message_input)
 
-        # 音频
-        layout.addWidget(QLabel("提示音"))
+        # 触发动作类型
+        layout.addWidget(QLabel("触发动作"))
+        action_type_row = QHBoxLayout()
+        self._action_type_group = QButtonGroup(self)
+        self._radio_audio_action = QRadioButton("播放音频")
+        self._radio_file_action = QRadioButton("打开文件")
+        self._action_type_group.addButton(self._radio_audio_action, 0)
+        self._action_type_group.addButton(self._radio_file_action, 1)
+        action_type_row.addWidget(self._radio_audio_action)
+        action_type_row.addWidget(self._radio_file_action)
+        action_type_row.addStretch()
+        layout.addLayout(action_type_row)
+
+        # ---- 音频面板 ----
+        self._audio_panel = QWidget()
+        audio_panel_layout = QVBoxLayout(self._audio_panel)
+        audio_panel_layout.setContentsMargins(0, 0, 0, 0)
+        audio_panel_layout.setSpacing(8)
+
+        audio_label_row = QHBoxLayout()
+        audio_label_row.addWidget(QLabel("提示音"))
+        audio_panel_layout.addLayout(audio_label_row)
+
         audio_row = QHBoxLayout()
         self._audio_combo = QComboBox()
         self._audio_combo.setEditable(False)
@@ -128,9 +153,8 @@ class EditAlarmDialog(QDialog):
         preview_btn = QPushButton("▶ 试听")
         preview_btn.clicked.connect(self._on_preview)
         audio_row.addWidget(preview_btn)
-        layout.addLayout(audio_row)
+        audio_panel_layout.addLayout(audio_row)
 
-        # 音量
         volume_row = QHBoxLayout()
         volume_row.addWidget(QLabel("音量"))
         self._volume_slider = QSlider(Qt.Orientation.Horizontal)
@@ -143,14 +167,12 @@ class EditAlarmDialog(QDialog):
         )
         volume_row.addWidget(self._volume_slider, 1)
         volume_row.addWidget(self._volume_label)
-        layout.addLayout(volume_row)
+        audio_panel_layout.addLayout(volume_row)
 
-        # 选项开关
         self._fade_in_check = QCheckBox("渐强淡入（3 秒内从静音升到目标音量）")
         self._fade_in_check.setChecked(True)
-        layout.addWidget(self._fade_in_check)
+        audio_panel_layout.addWidget(self._fade_in_check)
 
-        # 播放次数
         repeat_row = QHBoxLayout()
         repeat_row.addWidget(QLabel("重复播放"))
         self._repeat_count = QSpinBox()
@@ -159,9 +181,8 @@ class EditAlarmDialog(QDialog):
         self._repeat_count.setSuffix(" 次")
         repeat_row.addWidget(self._repeat_count)
         repeat_row.addStretch()
-        layout.addLayout(repeat_row)
+        audio_panel_layout.addLayout(repeat_row)
 
-        # 最大时长
         duration_row = QHBoxLayout()
         duration_row.addWidget(QLabel("最长时长"))
         self._max_duration = QSpinBox()
@@ -170,7 +191,36 @@ class EditAlarmDialog(QDialog):
         self._max_duration.setSuffix(" 秒（0=不限）")
         duration_row.addWidget(self._max_duration)
         duration_row.addStretch()
-        layout.addLayout(duration_row)
+        audio_panel_layout.addLayout(duration_row)
+
+        layout.addWidget(self._audio_panel)
+
+        # ---- 文件面板 ----
+        self._file_panel = QWidget()
+        file_panel_layout = QVBoxLayout(self._file_panel)
+        file_panel_layout.setContentsMargins(0, 0, 0, 0)
+        file_panel_layout.setSpacing(8)
+
+        file_row = QHBoxLayout()
+        self._file_path_input = QLineEdit()
+        self._file_path_input.setPlaceholderText("选择要打开的文件（支持 .docx .pptx .bat .exe 等）")
+        self._file_path_input.setReadOnly(True)
+        file_row.addWidget(self._file_path_input, 1)
+        file_browse_btn = QPushButton("浏览…")
+        file_browse_btn.clicked.connect(self._on_browse_file)
+        file_row.addWidget(file_browse_btn)
+        file_panel_layout.addLayout(file_row)
+
+        file_hint = QLabel("支持任意文件类型：Word、PPT、Excel、bat、exe 等")
+        file_hint.setStyleSheet("font-size: 11px; color: #999;")
+        file_panel_layout.addWidget(file_hint)
+
+        self._file_panel.setVisible(False)
+        layout.addWidget(self._file_panel)
+
+        # 动作类型切换
+        self._action_type_group.idToggled.connect(self._on_action_type_changed)
+        self._radio_audio_action.setChecked(True)
 
         self._snooze_check = QCheckBox("允许延后")
         self._snooze_check.setChecked(True)
@@ -240,6 +290,7 @@ class EditAlarmDialog(QDialog):
             self._weekday_checks_interval.append(cb)
             weekday_row.addWidget(cb)
         weekday_row.addStretch()
+        layout.addRow(self._make_weekday_shortcut_row(self._weekday_checks_interval))
         layout.addRow("仅在", weekday_row)
 
         return panel
@@ -261,6 +312,7 @@ class EditAlarmDialog(QDialog):
             self._weekday_checks_cron.append(cb)
             weekday_row.addWidget(cb)
         weekday_row.addStretch()
+        layout.addRow(self._make_weekday_shortcut_row(self._weekday_checks_cron))
         layout.addRow("星期", weekday_row)
 
         return panel
@@ -276,6 +328,52 @@ class EditAlarmDialog(QDialog):
         layout.addRow("触发时间", self._date_picker)
 
         return panel
+
+    def _on_action_type_changed(self, type_id: int, checked: bool) -> None:
+        if not checked:
+            return
+        is_audio = type_id == 0
+        self._audio_panel.setVisible(is_audio)
+        self._file_panel.setVisible(not is_audio)
+
+    def _on_browse_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择要打开的文件", "",
+            "所有文件 (*.*)"
+        )
+        if path:
+            self._file_path_input.setText(path)
+
+    @staticmethod
+    def _make_weekday_shortcut_row(checks: list[QCheckBox]) -> QHBoxLayout:
+        """创建工作日快捷选择按钮行。"""
+        row = QHBoxLayout()
+        row.setSpacing(4)
+
+        def check_range(start, end):
+            for i, cb in enumerate(checks):
+                cb.setChecked(start <= i + 1 <= end)
+
+        all_btn = QPushButton("全部")
+        all_btn.setFixedHeight(22)
+        all_btn.setStyleSheet("font-size: 11px; padding: 0 6px;")
+        all_btn.clicked.connect(lambda: check_range(1, 7))
+        row.addWidget(all_btn)
+
+        workday_btn = QPushButton("工作日")
+        workday_btn.setFixedHeight(22)
+        workday_btn.setStyleSheet("font-size: 11px; padding: 0 6px;")
+        workday_btn.clicked.connect(lambda: check_range(1, 5))
+        row.addWidget(workday_btn)
+
+        weekend_btn = QPushButton("休息日")
+        weekend_btn.setFixedHeight(22)
+        weekend_btn.setStyleSheet("font-size: 11px; padding: 0 6px;")
+        weekend_btn.clicked.connect(lambda: check_range(6, 7))
+        row.addWidget(weekend_btn)
+
+        row.addStretch()
+        return row
 
     def _on_type_changed(self, type_id: int, checked: bool) -> None:
         if not checked:
@@ -352,6 +450,12 @@ class EditAlarmDialog(QDialog):
         self._snooze_check.setChecked(a.get("snooze_enabled", True))
         self._repeat_count.setValue(a.get("repeat_count", 1))
         self._max_duration.setValue(a.get("max_duration", 0))
+
+        # 动作类型
+        action_type = a.get("action_type", "audio")
+        if action_type == "open_file":
+            self._radio_file_action.setChecked(True)
+            self._file_path_input.setText(a.get("file_path", ""))
 
         # 音频路径回填：先尝试找到匹配的项
         audio = a.get("audio", "")
@@ -465,17 +569,49 @@ class EditAlarmDialog(QDialog):
                 "active_hours": ["00:00", "23:59"],
             }
 
+        # 动作类型
+        action_type_id = self._action_type_group.checkedId()
+        if action_type_id == 1:  # 打开文件
+            file_path = self._file_path_input.text().strip()
+            if not file_path:
+                QMessageBox.warning(self, "提示", "请选择要打开的文件")
+                return
+            p = Path(file_path)
+            if not p.exists():
+                QMessageBox.warning(self, "提示", f"文件不存在：{file_path}")
+                return
+            self._result_alarm.update({
+                "action_type": "open_file",
+                "file_path": file_path,
+                "audio": "",
+            })
+        else:
+            # 校验音频文件是否存在
+            audio_path = self._audio_combo.currentData() or ""
+            if audio_path:
+                p = Path(audio_path)
+                if not p.is_absolute():
+                    from geekclock.system.resources import resource_path
+                    p = resource_path(audio_path)
+                if not p.exists():
+                    logger.warning(f"音频文件不存在，仍将保存：{p}")
+
+            self._result_alarm.update({
+                "action_type": "audio",
+                "audio": audio_path,
+                "file_path": "",
+            })
+
         # 公共字段
         self._result_alarm.update({
             "name": name,
             "group": self._group_combo.currentText().strip() or "默认",
             "message": self._message_input.toPlainText().strip(),
-            "audio": self._audio_combo.currentData() or "",
             "audio_volume": self._volume_slider.value() / 100.0,
             "fade_in": self._fade_in_check.isChecked(),
             "snooze_enabled": self._snooze_check.isChecked(),
-            "max_duration": self._max_duration.value(),     # 改成从 UI 取
-            "repeat_count": self._repeat_count.value(),     # 新增
+            "max_duration": self._max_duration.value(),
+            "repeat_count": self._repeat_count.value(),
             "enabled": self._alarm.get("enabled", True),
         })
 
@@ -502,3 +638,8 @@ class EditAlarmDialog(QDialog):
     def is_delete_requested(self) -> bool:
         """对话框 Accept 后判断是新建/编辑还是删除。"""
         return self._delete_requested
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self._group_combo.lineEdit() and event.type() == QEvent.Type.MouseButtonPress:
+            self._group_combo.showPopup()
+        return super().eventFilter(watched, event)

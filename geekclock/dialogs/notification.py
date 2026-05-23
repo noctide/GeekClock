@@ -415,9 +415,10 @@ class NotificationWidget(QFrame):
     snooze_until_requested = Signal(object)
     dismissed = Signal()
 
-    def __init__(self, alarm: dict, parent=None):
+    def __init__(self, alarm: dict, audio_player=None, parent=None):
         super().__init__(parent)
         self._alarm = alarm
+        self._audio_player = audio_player
         self._closed = False
         self._remaining_ms = AUTO_CLOSE_DURATION_MS
         self._manager_ref = None
@@ -464,9 +465,14 @@ class NotificationWidget(QFrame):
 
         layout.addStretch()
 
-        # 按钮行：延后 + 知道了
+        # 按钮行：停止播放 + 延后 + 知道了
         button_row = QHBoxLayout()
         button_row.setSpacing(6)
+
+        if self._alarm.get("audio"):
+            stop_btn = QPushButton("静音")
+            stop_btn.clicked.connect(self._on_stop_audio)
+            button_row.addWidget(stop_btn)
 
         if self._alarm.get("snooze_enabled", True):
             snooze_btn = QPushButton("延后…")
@@ -535,6 +541,10 @@ class NotificationWidget(QFrame):
             return
         self._progress.setValue(self._remaining_ms)
 
+    def _on_stop_audio(self) -> None:
+        if self._audio_player:
+            self._audio_player.stop()
+
     def _on_dismiss(self) -> None:
         if self._closed:
             return
@@ -573,8 +583,9 @@ class NotificationManager(QObject):
     snooze_until_requested = Signal(dict, object)
     _show_requested = Signal(dict)
 
-    def __init__(self, parent=None):
+    def __init__(self, audio_player=None, parent=None):
         super().__init__(parent)
+        self._audio_player = audio_player
         self._notifications = []
         self._show_requested.connect(
             self._do_show, Qt.ConnectionType.QueuedConnection
@@ -584,7 +595,7 @@ class NotificationManager(QObject):
         self._show_requested.emit(alarm)
 
     def _do_show(self, alarm: dict) -> None:
-        widget = NotificationWidget(alarm)
+        widget = NotificationWidget(alarm, audio_player=self._audio_player)
         widget._manager_ref = self
 
         widget.snooze_until_requested.connect(

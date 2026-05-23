@@ -1,4 +1,5 @@
 import logging
+import os
 import signal
 import sys
 from datetime import datetime
@@ -33,15 +34,40 @@ def make_handler(audio_player: AudioPlayer, notif_manager: NotificationManager):
         now = datetime.now().strftime("%H:%M:%S")
         print(f"\n[{now}] 闹钟触发 → {alarm['name']}")
 
-        audio_path = alarm.get("audio")
-        if audio_path:
-            audio_player.play(
-                path=audio_path,
-                volume=alarm.get("audio_volume", 0.6),
-                fade_in=alarm.get("fade_in", True),
-                max_duration=alarm.get("max_duration", 0),
-                repeat_count=alarm.get("repeat_count", 1),
-            )
+        action_type = alarm.get("action_type", "audio")
+
+        if action_type == "open_file":
+            file_path = alarm.get("file_path", "")
+            if file_path:
+                try:
+                    os.startfile(file_path)
+                    logger.info(f"已打开文件：{file_path}")
+                except OSError as e:
+                    logger.error(f"打开文件失败：{file_path}，错误：{e}")
+                    alarm_copy = dict(alarm)
+                    orig_msg = alarm.get("message", "")
+                    alarm_copy["message"] = orig_msg + (f"\n⚠ 文件打开失败：{e}" if orig_msg else f"⚠ 文件打开失败：{e}")
+                    notif_manager.show(alarm_copy)
+                    return
+            else:
+                logger.error(f"闹钟「{alarm['name']}」设置了打开文件但路径为空")
+        else:
+            audio_path = alarm.get("audio")
+            if audio_path:
+                ok = audio_player.play(
+                    path=audio_path,
+                    volume=alarm.get("audio_volume", 0.6),
+                    fade_in=alarm.get("fade_in", True),
+                    max_duration=alarm.get("max_duration", 0),
+                    repeat_count=alarm.get("repeat_count", 1),
+                )
+                if not ok:
+                    logger.error(f"闹钟「{alarm['name']}」音频播放失败，文件可能已被移动或删除：{audio_path}")
+                    alarm_copy = dict(alarm)
+                    orig_msg = alarm.get("message", "")
+                    alarm_copy["message"] = orig_msg + ("\n⚠ 音频文件不存在，请检查设置" if orig_msg else "⚠ 音频文件不存在，请检查设置")
+                    notif_manager.show(alarm_copy)
+                    return
 
         notif_manager.show(alarm)
     return handler
@@ -117,7 +143,7 @@ def main() -> int:
     sync_autostart_state()
 
     audio_player = AudioPlayer()
-    notif_manager = NotificationManager()
+    notif_manager = NotificationManager(audio_player=audio_player)
 
     scheduler = AlarmScheduler(
         on_trigger=make_handler(audio_player, notif_manager)

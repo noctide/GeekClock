@@ -1,17 +1,18 @@
 # GeekClock 项目结构说明
 
-GeekClock 是一个基于 PySide6 + APScheduler 的桌面闹钟应用。采用根目录应用包布局。
+GeekClock v3 是一个基于 PySide6 + APScheduler 的桌面闹钟应用，采用根目录应用包布局。
 
 ## 目录结构
 
 ```text
-GeekClock_v1/
+GeekClock_v3/
 ├── pyproject.toml
+├── uv.lock
 ├── build.bat
 ├── build.py
 ├── cleanup.bat              # 清理 __pycache__ 和构建产物
-├── main.py
-├── alarms.json
+├── main.py                  # 启动入口，调用 geekclock.app.main()
+├── alarms.json              # 运行时配置（含 schema_version）
 ├── icon.ico
 ├── sounds/
 │   ├── bell1.mp3
@@ -19,14 +20,28 @@ GeekClock_v1/
 │   ├── bell3.mp3
 │   ├── bell4.mp3
 │   └── bell5.mp3
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── test_config.py
+│   │   └── test_config_migration.py
+│   └── system/
+│       ├── __init__.py
+│       └── test_resources.py
+├── docs/
+│   ├── EXE_GUIDE.md
+│   ├── PROJECT_STRUCTURE.md
+│   └── USER_GUIDE.md
 └── geekclock/
     ├── __init__.py
     ├── __main__.py
-    ├── app.py
+    ├── app.py               # 应用装配，信号连接
     ├── core/
     │   ├── __init__.py
     │   ├── audio_player.py
-    │   ├── config.py
+    │   ├── config.py        # 配置读写 + schema 迁移
     │   └── scheduler.py
     ├── system/
     │   ├── __init__.py
@@ -68,11 +83,11 @@ GeekClock_v1/
 
 - `main.py`：极薄启动器，只负责调用 `geekclock.app.main()`。
 - `geekclock/__main__.py`：支持 `python -m geekclock`。
-- `geekclock/app.py`：应用装配层，创建 QApplication，初始化调度器、音频、通知、托盘、悬浮时钟和计时器，并连接所有信号。
+- `geekclock/app.py`：应用装配层，创建 QApplication，初始化调度器、音频、通知、托盘、悬浮时钟和计时器，并连接所有信号。支持两种触发动作（播放音频 / 打开文件）。
 
 ### core/
 
-- `config.py`：读取和保存 `alarms.json`，提供闹钟、通知、保活、悬浮时钟、计时器、全局设置访问接口。
+- `config.py`：读取和保存 `alarms.json`，提供闹钟、通知、保活、悬浮时钟、计时器、全局设置访问接口。内置 `schema_version` 配置迁移机制（自动备份 → 逐版本升级），自动完成旧版配置升级。
 - `scheduler.py`：封装 APScheduler，负责 interval / cron / date 三类触发器、延后提醒、音响保活定时任务。
 - `audio_player.py`：封装 QMediaPlayer，支持渐强、重复播放、最长播放时长和跨线程播放请求。
 
@@ -92,11 +107,18 @@ GeekClock_v1/
 - `floating_clock/floating_clock.py`：桌面悬浮时钟（时钟模式 / 图标模式）。
 - `timer/widget.py`：倒计时/秒表悬浮窗。
 - `timer/settings_dialog.py`：倒计时设置对话框。
-- `dialogs/edit_alarm.py`：新建/编辑闹钟对话框。
+- `dialogs/edit_alarm.py`：新建/编辑闹钟对话框。支持"播放音频"和"打开文件"两种触发动作。
 - `dialogs/notification.py`：通知管理器和延后提醒对话框。
 - `dialogs/settings.py`：全局设置对话框（勿扰、通知、开机自启）。
 - `dialogs/keep_alive_settings.py`：音响保活设置弹窗（通过主窗口左下角音响图标按钮打开）。
 - `common/opacity_slider.py`：透明度滑动条组件（被悬浮时钟和计时器共用）。
+
+### tests/
+
+- `conftest.py`：pytest fixtures（临时配置路径、样本闹钟数据）。
+- `core/test_config.py`：config 模块单元测试（CRUD、分组、设置、缓存）。
+- `core/test_config_migration.py`：配置迁移测试（v0→v1、损坏文件回退、备份生成）。
+- `system/test_resources.py`：资源路径工具测试。
 
 ## 路径规则
 

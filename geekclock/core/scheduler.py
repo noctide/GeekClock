@@ -69,8 +69,11 @@ class AlarmScheduler:
             return None
 
     def _add_alarm_job(self, alarm: dict) -> None:
-        alarm_id = alarm["id"]
-        trigger_type = alarm["trigger_type"]
+        alarm_id = alarm.get("id")
+        trigger_type = alarm.get("trigger_type")
+        if not alarm_id or not trigger_type:
+            logger.warning(f"闹钟配置不完整（缺少 id 或 trigger_type），跳过：{alarm.get('name', '?')}")
+            return
         trigger_args = alarm.get("trigger_args", {})
 
         try:
